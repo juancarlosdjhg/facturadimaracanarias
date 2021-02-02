@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document   : atributos.xml
+    Author     : Carlos Garcia Gomez
+    Description:
+        Structure for the atributos table.
+-->
+<table>
+    <column>
+        <name>codatributo</name>
+        <type>character varying(20)</type>
+        <null>NO</null>
+    </column>
+    <column>
+        <name>nombre</name>
+        <type>character varying(100)</type>
+        <null>NO</null>
+    </column>
+    <constraint>
+        <name>atributos_pkey</name>
+        <type>PRIMARY KEY (codatributo)</type>
+    </constraint>
+</table>

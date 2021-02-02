@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Document   : paises.xml
+    Author     : Carlos Garcia Gomez
+    Description:
+        Structure for the paises table.
+-->
+<table>
+    <column>
+        <name>codiso</name>
+        <type>character varying(2)</type>
+    </column>
+    <column>
+        <name>codpais</name>
+        <type>character varying(20)</type>
+        <null>NO</null>
+    </column>
+    <column>
+        <name>nombre</name>
+        <type>character varying(100)</type>
+    </column>
+    <constraint>
+        <name>paises_pkey</name>
+        <type>PRIMARY KEY (codpais)</type>
+    </constraint>
+    <constraint>
+        <name>uniq_codiso_paises</name>
+        <type>UNIQUE (codiso)</type>
+    </constraint>
+</table>
