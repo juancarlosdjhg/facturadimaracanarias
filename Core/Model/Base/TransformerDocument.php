@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of FacturaScripts
- * Copyright (C) 2013-2020 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2013-2021 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -117,29 +117,36 @@ abstract class TransformerDocument extends BusinessDocument
     public function delete()
     {
         if (\count($this->childrenDocuments()) > 0) {
+            $this->toolBox()->i18nLog()->warning('non-editable-document');
             return false;
         }
 
-        self::$dataBase->beginTransaction();
+        /// we check if there is already an open transaction so as not to break it
+        $newTransation = false === static::$dataBase->inTransaction() && self::$dataBase->beginTransaction();
 
         /// remove lines to update stock
         foreach ($this->getLines() as $line) {
-            if (false === $line->delete()) {
-                self::$dataBase->rollback();
-                return false;
+            if ($line->delete()) {
+                continue;
             }
+            if ($newTransation) {
+                self::$dataBase->rollback();
+            }
+            return false;
         }
 
         /// remove this model
         if (false === parent::delete()) {
-            self::$dataBase->rollback();
+            if ($newTransation) {
+                self::$dataBase->rollback();
+            }
             return false;
         }
 
-        /// load parents and remove relations from DocTransformation
+        /// load parents, remove relations and update servido column
         $parents = $this->parentDocuments();
         $docTransformation = new DocTransformation();
-        $docTransformation->deleteFrom($this->modelClassName(), $this->primaryColumnValue());
+        $docTransformation->deleteFrom($this->modelClassName(), $this->primaryColumnValue(), true);
 
         /// change parent doc status
         foreach ($parents as $parent) {
@@ -152,7 +159,9 @@ abstract class TransformerDocument extends BusinessDocument
             }
         }
 
-        self::$dataBase->commit();
+        if ($newTransation) {
+            self::$dataBase->commit();
+        }
         return true;
     }
 
@@ -163,7 +172,7 @@ abstract class TransformerDocument extends BusinessDocument
      */
     public function getAvaliableStatus()
     {
-        if (!isset(self::$estados)) {
+        if (null === self::$estados) {
             $statusModel = new EstadoDocumento();
             self::$estados = $statusModel->all([], [], 0, 0);
         }
@@ -253,7 +262,7 @@ abstract class TransformerDocument extends BusinessDocument
      * 
      * @param bool $value
      */
-    public function setDocumentGeneration($value)
+    public function setDocumentGeneration(bool $value)
     {
         self::$documentGeneration = $value;
     }
@@ -267,24 +276,46 @@ abstract class TransformerDocument extends BusinessDocument
      */
     protected function onChange($field)
     {
-        if (!$this->editable && !$this->previousData['editable'] && $field != 'idestado') {
+        if (false === $this->editable && false === $this->previousData['editable'] && $field != 'idestado') {
             $this->toolBox()->i18nLog()->warning('non-editable-document');
             return false;
+        } elseif ($field !== 'idestado') {
+            return parent::onChange($field);
         }
 
-        if ($field === 'idestado') {
-            $status = $this->getStatus();
+        $status = $this->getStatus();
+        if (empty($status->generadoc) || false === self::$documentGeneration) {
+            /// update lines to update stock
             foreach ($this->getLines() as $line) {
                 $line->actualizastock = $status->actualizastock;
                 $line->save();
             }
-            $docGenerator = new BusinessDocumentGenerator();
-            if (!empty($status->generadoc) && self::$documentGeneration && !$docGenerator->generate($this, $status->generadoc)) {
-                return false;
-            }
+            /// do not generate a new document
+            return parent::onChange($field);
         }
 
-        return parent::onChange($field);
+        /// update lines to update stock and break down quantities
+        $newLines = [];
+        $quantities = [];
+        foreach ($this->getLines() as $line) {
+            if ($line->servido < $line->cantidad) {
+                $quantities[$line->primaryColumnValue()] = $line->cantidad - $line->servido;
+                $newLines[] = $line;
+            }
+
+            $line->actualizastock = $status->actualizastock;
+            $line->servido = $line->cantidad;
+            $line->save();
+        }
+
+        /// generate the new document, when there are no children
+        $generator = new BusinessDocumentGenerator();
+        if (empty($this->childrenDocuments())) {
+            return $generator->generate($this, $status->generadoc) ? parent::onChange($field) : false;
+        }
+
+        /// generate the new document, when there are children
+        return $generator->generate($this, $status->generadoc, $newLines, $quantities) ? parent::onChange($field) : false;
     }
 
     /**

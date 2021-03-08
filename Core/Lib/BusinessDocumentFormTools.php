@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of FacturaScripts
- * Copyright (C) 2018-2020 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2018-2021 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -102,7 +102,7 @@ class BusinessDocumentFormTools extends DinBusinessDocumentTools
         $suplido = isset($fLine['suplido']) && $fLine['suplido'] === 'true';
         if ($this->siniva || $newLine->codimpuesto === null || $suplido) {
             $newLine->codimpuesto = null;
-            $newLine->irpf = $newLine->iva = $newLine->recargo = 0.0;
+            $newLine->iva = $newLine->recargo = 0.0;
         } elseif ($this->recargo === false) {
             $newLine->recargo = 0.0;
         }
@@ -119,7 +119,7 @@ class BusinessDocumentFormTools extends DinBusinessDocumentTools
         $newCodimpuesto = $line->codimpuesto;
 
         /// tax manually changed?
-        if ($line->getTax()->iva != $line->iva) {
+        if (\abs($line->getTax()->iva - $line->iva) >= 0.01) {
             /// only defined tax are allowed
             $newCodimpuesto = null;
             foreach ($line->getTax()->all() as $tax) {

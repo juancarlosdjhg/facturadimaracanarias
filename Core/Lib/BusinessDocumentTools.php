@@ -1,7 +1,7 @@
 <?php
 /**
  * This file is part of FacturaScripts
- * Copyright (C) 2018-2020 Carlos Garcia Gomez <carlos@facturascripts.com>
+ * Copyright (C) 2018-2021 Carlos Garcia Gomez <carlos@facturascripts.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -20,12 +20,12 @@ namespace FacturaScripts\Core\Lib;
 
 use FacturaScripts\Core\Model\Base\BusinessDocument;
 use FacturaScripts\Core\Model\Base\BusinessDocumentLine;
+use FacturaScripts\Dinamic\Lib\RegimenIVA as DinRegimenIVA;
 use FacturaScripts\Dinamic\Model\Cliente;
 use FacturaScripts\Dinamic\Model\Empresa;
 use FacturaScripts\Dinamic\Model\Impuesto;
 use FacturaScripts\Dinamic\Model\ImpuestoZona;
 use FacturaScripts\Dinamic\Model\Proveedor;
-use FacturaScripts\Dinamic\Lib\RegimenIVA as DinRegimenIVA;
 use FacturaScripts\Dinamic\Model\Serie;
 
 /**
@@ -276,7 +276,7 @@ class BusinessDocumentTools
 
         if ($this->siniva || $newCodimpuesto === null || $line->suplido) {
             $line->codimpuesto = null;
-            $line->irpf = $line->iva = $line->recargo = 0.0;
+            $line->iva = $line->recargo = 0.0;
             $save = true;
         } elseif ($newCodimpuesto !== $line->codimpuesto) {
             /// set new tax
@@ -307,7 +307,7 @@ class BusinessDocumentTools
         $newCodimpuesto = $line->codimpuesto;
 
         /// tax manually changed?
-        if ($line->getTax()->iva != $line->iva) {
+        if (\abs($line->getTax()->iva - $line->iva) >= 0.01) {
             /// only defined tax are allowed
             $newCodimpuesto = null;
             foreach ($line->getTax()->all() as $tax) {
